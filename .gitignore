@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+dist/
+*.egg-info/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Factory runtime data
+data/
+logs/
+
+# uv lockfile (regenerated)
+# Keep uv.lock if you want reproducible builds; remove this line in that case
+# uv.lock
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/

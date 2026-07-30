@@ -1,0 +1,130 @@
+# ============================================================
+# OpenSpec Configuration
+# ============================================================
+# Controls how the factory parses, validates, generates, and
+# manages OpenSpec behavioral specifications.
+#
+# OpenSpec is the Definition Layer:
+#   specs/ → settled behavior (source of truth)
+#   changes/ → proposed changes (active work)
+#
+# Format: Markdown with structured Requirements + Scenarios
+# Keywords: SHALL (mandatory), SHOULD (recommended), MAY (optional)
+# ============================================================
+
+openspec:
+  # --- Paths ---
+  paths:
+    specs_dir: "../openspec/specs/"            # Canonical specs (read by factory)
+    changes_dir: "../openspec/changes/"        # Change proposals (written by factory)
+    archive_dir: "../openspec/changes/archive/"  # Completed changes
+    templates_dir: "./specs/templates/"        # Jinja2 templates for generation
+
+  # --- Parser ---
+  parser:
+    # Spec document structure markers
+    markers:
+      purpose: "## Purpose"
+      requirements: "## Requirements"
+      requirement: "### Requirement:"
+      scenario: "#### Scenario:"
+      given: "- GIVEN"
+      when: "- WHEN"
+      then: "- THEN"
+      and: "- AND"
+
+    # Keyword strength levels (RFC 2119 inspired)
+    keywords:
+      mandatory: ["SHALL", "MUST", "REQUIRED"]
+      recommended: ["SHOULD", "RECOMMENDED"]
+      optional: ["MAY", "OPTIONAL"]
+      negative: ["SHALL NOT", "MUST NOT"]
+
+    # Validation rules
+    require_purpose: true                      # Every spec must have Purpose section
+    require_at_least_one_requirement: true     # At least 1 requirement per spec
+    require_scenario_per_requirement: true     # Every requirement needs ≥1 scenario
+    require_given_when_then: true              # Scenarios must have G/W/T structure
+
+  # --- Task Graph ---
+  task_graph:
+    # How to derive tasks from specs
+    task_per_requirement: true                 # One task per requirement (default)
+    task_per_scenario: false                   # One task per scenario (more granular)
+    infer_dependencies: true                   # Auto-detect dependencies from references
+    respect_spec_order: true                   # Tasks ordered as specs appear
+
+    # Dependency detection patterns
+    dependency_markers:
+      - "depends on"
+      - "requires"
+      - "after"
+      - "builds upon"
+      - "extends"
+
+    # Priority inference
+    priority_rules:
+      - keyword: "SHALL"
+        priority: "high"
+      - keyword: "SHOULD"
+        priority: "medium"
+      - keyword: "MAY"
+        priority: "low"
+
+  # --- Validation ---
+  validation:
+    # Completeness checks
+    check_all_requirements_have_scenarios: true
+    check_scenarios_have_given_when_then: true
+    check_no_orphan_scenarios: true            # Scenarios without parent requirement
+    check_keyword_consistency: true            # Don't mix SHALL/SHOULD in same req
+    check_cross_references: true               # Validate references to other specs/ADRs
+
+    # Consistency checks
+    check_no_contradictions: true              # Flag conflicting requirements
+    check_layer_compliance: true               # Requirements respect architecture layers
+    check_adr_references: true                 # Referenced ADRs must exist
+
+    # Severity levels
+    severity:
+      missing_scenario: "error"
+      missing_given_when_then: "error"
+      orphan_scenario: "warning"
+      keyword_inconsistency: "warning"
+      broken_cross_reference: "error"
+      potential_contradiction: "warning"
+
+  # --- Acceptance Criteria ---
+  acceptance:
+    # Extraction settings
+    extract_from_scenarios: true               # Derive criteria from THEN clauses
+    extract_from_requirements: true            # Derive criteria from SHALL statements
+    include_negative_criteria: true            # Include SHALL NOT as criteria
+
+    # Format
+    output_format: "checklist"                 # checklist | table | gherkin
+    prefix: "- [ ] "                           # Checkbox format for checklist
+
+    # Mapping
+    map_to_test_files: true                    # Attempt to find corresponding test
+    test_path_pattern: "firmware/tests/test_{requirement_slug}.cpp"
+
+  # --- Generator (LLM-assisted) ---
+  generator:
+    # Which model to use for spec generation
+    model: "anthropic/claude-sonnet-4.6"
+    max_tokens: 4096
+    temperature: 0.3                           # Slightly creative for spec writing
+
+    # Templates
+    proposal_template: "proposal.md"
+    design_template: "design.md"
+    tasks_template: "tasks.md"
+
+    # Generation constraints
+    max_requirements_per_spec: 10
+    max_scenarios_per_requirement: 5
+    require_keyword_in_requirement: true       # Must use SHALL/SHOULD/MAY
+
+    # Output location
+    output_dir: "../openspec/changes/"

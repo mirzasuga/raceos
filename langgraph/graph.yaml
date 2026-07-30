@@ -1,0 +1,49 @@
+# ============================================================
+# LangGraph Factory DAG — Topology Definition
+# ============================================================
+# This file documents the graph structure. The actual executable
+# graph is built in src/factory/orchestrator/graph.py.
+# ============================================================
+
+graph:
+  name: "raceos-factory"
+  entry_point: "classify"
+
+  nodes:
+    - name: "classify"
+      module: "factory.orchestrator.nodes.classify"
+      function: "classify_node"
+
+    - name: "plan"
+      module: "factory.orchestrator.nodes.plan"
+      function: "plan_node"
+
+    - name: "execute"
+      module: "factory.orchestrator.nodes.execute"
+      function: "execute_node"
+
+    - name: "validate"
+      module: "factory.orchestrator.nodes.validate"
+      function: "validate_node"
+
+    - name: "learn"
+      module: "factory.orchestrator.nodes.learn"
+      function: "learn_node"
+
+  edges:
+    - from: "classify"
+      to: ["plan", "execute"]
+      condition: "after_classify"  # routes by complexity
+
+    - from: "plan"
+      to: "execute"               # always (after human approval)
+
+    - from: "execute"
+      to: "validate"
+
+    - from: "validate"
+      to: ["learn", "execute"]    # learn on success, retry on failure
+      condition: "after_validate"
+
+    - from: "learn"
+      to: "END"

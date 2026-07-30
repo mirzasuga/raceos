@@ -1,0 +1,96 @@
+# ============================================================
+# MCP Server Registry
+# ============================================================
+# Defines available MCP tool servers, their capabilities,
+# and access control per workflow node.
+#
+# Each server runs as an isolated subprocess.
+# No cross-server communication. Stateless execution.
+# ============================================================
+
+mcp_servers:
+  # --- Codebase Memory (implementation patterns) ---
+  codebase-memory:
+    transport: "stdio"
+    command: "npx"
+    args: ["-y", "@deusdata/codebase-memory-mcp"]
+    capabilities:
+      - search_memory
+      - store_pattern
+      - get_context
+      - list_patterns
+    allowed_by: [plan, execute, learn]
+    write_access: [learn, validate]
+
+  # --- Filesystem (read/write project files) ---
+  filesystem:
+    transport: "stdio"
+    command: "npx"
+    args: ["-y", "@anthropic/filesystem-mcp", "--root", ".."]
+    capabilities:
+      - read_file
+      - write_file
+      - list_directory
+      - search_files
+    allowed_by: [execute]
+    restricted_paths:
+      - ".raceos/"    # Brain is immutable
+      - ".ai/"        # AI steering is curated
+      - "config/"     # Factory config is deploy-time
+      - ".env"        # Secrets
+
+  # --- Git (version control) ---
+  git:
+    transport: "stdio"
+    command: "npx"
+    args: ["-y", "@anthropic/git-mcp"]
+    capabilities:
+      - stage
+      - commit
+      - branch
+      - diff
+      - log
+    allowed_by: [execute]
+    restrictions:
+      no_force_push: true
+      no_main_branch_commit: true
+      require_branch_prefix: "factory/"
+
+  # --- Terminal (build/test execution) ---
+  terminal:
+    transport: "stdio"
+    command: "npx"
+    args: ["-y", "@anthropic/terminal-mcp"]
+    capabilities:
+      - run_command
+    allowed_by: [execute, validate]
+    allowed_commands:
+      - "pio build"
+      - "pio test"
+      - "pytest"
+      - "npm test"
+      - "npm run build"
+      - "npx tsc"
+      - "make lint"
+      - "uv run"
+    blocked_commands:
+      - "rm -rf"
+      - "sudo"
+      - "curl"
+      - "wget"
+      - "ssh"
+
+  # --- GitHub (remote operations) ---
+  github:
+    transport: "stdio"
+    command: "npx"
+    args: ["-y", "@anthropic/github-mcp"]
+    capabilities:
+      - create_pr
+      - check_ci
+      - request_review
+      - add_comment
+    allowed_by: [execute, validate]
+    restrictions:
+      target_branch: "main"
+      require_ci_pass: true

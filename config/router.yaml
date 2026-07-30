@@ -1,0 +1,322 @@
+# ============================================================
+# 9Router — Routing & Gateway Configuration
+# ============================================================
+# Defines:
+#   - Model catalog with pricing
+#   - Routing policy (task type → model)
+#   - Fallback chains (primary → secondary → tertiary)
+#   - Retry strategy (backoff, escalation)
+#   - Timeout policy (per-model, per-task)
+#   - Cost optimization (budget, downgrade rules)
+# ============================================================
+
+# --- 9Router Gateway (sole owner of LLM transport) ---
+gateway:
+  base_url: "http://localhost:20128/v1"
+  api_key_env: "NINE_ROUTER_API_KEY"
+  headers:
+    X-Title: "RaceOS Factory"
+  default_timeout_seconds: 60
+  max_concurrent_requests: 5
+
+# --- Model Catalog ---
+catalog:
+  gpt-5:
+    id: "openai/gpt-5"
+    provider: "openai"
+    context_window: 256000
+    cost_per_1k_input: 0.01
+    cost_per_1k_output: 0.03
+    latency_class: "normal"
+    strengths: [architecture, planning, reasoning, complex_analysis]
+
+  claude-sonnet:
+    id: "anthropic/claude-sonnet-4"
+    provider: "anthropic"
+    context_window: 200000
+    cost_per_1k_input: 0.003
+    cost_per_1k_output: 0.015
+    latency_class: "normal"
+    strengths: [coding, refactoring, debugging, implementation]
+
+  claude-sonnet-latest:
+    id: "anthropic/claude-sonnet-4.6"
+    provider: "anthropic"
+    context_window: 200000
+    cost_per_1k_input: 0.004
+    cost_per_1k_output: 0.020
+    latency_class: "normal"
+    strengths: [coding, complex_coding, spec_writing]
+
+  gemini-pro:
+    id: "google/gemini-2.5-pro"
+    provider: "google"
+    context_window: 1048576
+    cost_per_1k_input: 0.00125
+    cost_per_1k_output: 0.01
+    latency_class: "normal"
+    strengths: [documentation, long_context, summarization, analysis]
+
+  deepseek-chat:
+    id: "deepseek/deepseek-chat-v3"
+    provider: "deepseek"
+    context_window: 128000
+    cost_per_1k_input: 0.0002
+    cost_per_1k_output: 0.0006
+    latency_class: "fast"
+    strengths: [batch, classification, simple_tasks, translation]
+
+  deepseek-reasoner:
+    id: "deepseek/deepseek-reasoner"
+    provider: "deepseek"
+    context_window: 128000
+    cost_per_1k_input: 0.0008
+    cost_per_1k_output: 0.002
+    latency_class: "normal"
+    strengths: [reasoning, math, logic]
+
+# --- Routing Policy ---
+# Maps task_type → primary model
+# Deterministic: same task_type always routes to same model
+policy:
+  rules:
+    # Architecture & Design → GPT-5 (best reasoning for design decisions)
+    - match: { task_type: "architecture" }
+      model: "gpt-5"
+      max_tokens: 8192
+      temperature: 0.2
+      reason: "Deep reasoning required for architectural decisions"
+
+    # Planning → GPT-5 for high/critical, Claude for medium
+    - match: { task_type: "planning", complexity: ["high", "critical"] }
+      model: "gpt-5"
+      max_tokens: 8192
+      temperature: 0.3
+      reason: "Complex planning needs GPT-5 deep reasoning"
+
+    - match: { task_type: "planning", complexity: "medium" }
+      model: "claude-sonnet-latest"
+      max_tokens: 4096
+      temperature: 0.3
+      reason: "Medium planning: Claude is adequate + cheaper ($0.10 vs $0.30)"
+
+    - match: { task_type: "planning" }
+      model: "gpt-5"
+      max_tokens: 8192
+      temperature: 0.3
+      reason: "Default planning fallback: GPT-5"
+
+    - match: { task_type: "spec_writing" }
+      model: "gpt-5"
+      max_tokens: 4096
+      temperature: 0.3
+      reason: "Spec generation needs structured reasoning"
+
+    # Coding → Claude (best code generation)
+    - match: { task_type: "coding" }
+      model: "claude-sonnet-latest"
+      max_tokens: 8192
+      temperature: 0.1
+      reason: "Claude excels at code generation and understanding"
+
+    - match: { task_type: "refactoring" }
+      model: "claude-sonnet-latest"
+      max_tokens: 8192
+      temperature: 0.1
+      reason: "Refactoring needs precise code understanding"
+
+    - match: { task_type: "debugging" }
+      model: "claude-sonnet-latest"
+      max_tokens: 4096
+      temperature: 0.0
+      reason: "Zero temp for deterministic debugging analysis"
+
+    - match: { task_type: "review" }
+      model: "claude-sonnet"
+      max_tokens: 4096
+      temperature: 0.0
+      reason: "Code review: precise, no creativity needed"
+
+    # Documentation → Gemini (long context + good writing)
+    - match: { task_type: "documentation" }
+      model: "gemini-pro"
+      max_tokens: 8192
+      temperature: 0.3
+      reason: "Gemini has 1M context + excellent summarization"
+
+    - match: { task_type: "analysis" }
+      model: "gemini-pro"
+      max_tokens: 8192
+      temperature: 0.2
+      reason: "Can ingest large codebases for analysis"
+
+    # Cheap batch operations → DeepSeek
+    - match: { task_type: "classification" }
+      model: "deepseek-chat"
+      max_tokens: 32
+      temperature: 0.0
+      reason: "Classification is simple structured output"
+
+    - match: { task_type: "batch" }
+      model: "deepseek-chat"
+      max_tokens: 2048
+      temperature: 0.0
+      reason: "Volume work at lowest cost"
+
+    - match: { task_type: "translation" }
+      model: "deepseek-chat"
+      max_tokens: 4096
+      temperature: 0.1
+      reason: "Simple text transformation"
+
+  # Default fallback if no rule matches
+  default:
+    model: "claude-sonnet"
+    max_tokens: 4096
+    temperature: 0.1
+
+# --- Fallback Chains ---
+# When primary model fails, try next in chain
+fallback:
+  chains:
+    gpt-5:
+      - "claude-sonnet-latest"    # 1st fallback: Claude (different provider)
+      - "gemini-pro"              # 2nd fallback: Gemini (different provider)
+      - "deepseek-reasoner"       # 3rd fallback: DeepSeek (cheapest capable)
+
+    claude-sonnet-latest:
+      - "claude-sonnet"           # 1st: older Claude (same provider, cheaper)
+      - "gpt-5"                   # 2nd: GPT-5 (different provider)
+      - "deepseek-reasoner"       # 3rd: DeepSeek reasoning
+
+    claude-sonnet:
+      - "claude-sonnet-latest"    # 1st: newer Claude
+      - "deepseek-reasoner"       # 2nd: DeepSeek
+      - "gemini-pro"              # 3rd: Gemini
+
+    gemini-pro:
+      - "claude-sonnet"           # 1st: Claude
+      - "deepseek-chat"           # 2nd: DeepSeek (cheap)
+      - "gpt-5"                   # 3rd: GPT-5
+
+    deepseek-chat:
+      - "deepseek-reasoner"       # 1st: better DeepSeek
+      - "claude-sonnet"           # 2nd: Claude
+      - "gemini-pro"              # 3rd: Gemini
+
+    deepseek-reasoner:
+      - "claude-sonnet"           # 1st: Claude
+      - "gemini-pro"              # 2nd: Gemini
+      - "gpt-5"                   # 3rd: GPT-5
+
+  # Fallback behavior
+  max_fallback_attempts: 3
+  retry_on_fallback: true           # Retry once on fallback model before next
+  preserve_temperature: true        # Keep original temp on fallback
+
+# --- Retry Strategy ---
+retry:
+  max_attempts: 3
+  backoff:
+    type: "exponential"             # exponential | linear | fixed
+    base_delay_ms: 1000             # 1 second
+    max_delay_ms: 30000             # 30 seconds cap
+    multiplier: 2.0                 # 1s → 2s → 4s → 8s ...
+    jitter: true                    # Add ±20% randomness to prevent thundering herd
+
+  # Which HTTP status codes trigger retry
+  retry_on_status:
+    - 429    # Rate limited
+    - 500    # Server error
+    - 502    # Bad gateway
+    - 503    # Service unavailable
+    - 504    # Gateway timeout
+
+  # Which do NOT retry (our fault, fix the request)
+  no_retry_on_status:
+    - 400    # Bad request
+    - 401    # Unauthorized
+    - 403    # Forbidden
+    - 404    # Not found
+    - 422    # Validation error
+
+  # Escalation on content failure (not HTTP errors)
+  escalation:
+    enabled: true
+    # After N failed attempts at same task, upgrade model
+    escalation_after_attempt: 2
+    escalation_path:
+      - "deepseek-chat"
+      - "deepseek-reasoner"
+      - "claude-sonnet"
+      - "claude-sonnet-latest"
+      - "gpt-5"
+
+# --- Timeout Policy ---
+timeout:
+  # Per-model timeouts (some models are slower)
+  per_model:
+    gpt-5: 90                       # GPT-5 can be slow on complex tasks
+    claude-sonnet-latest: 60
+    claude-sonnet: 60
+    gemini-pro: 90                  # Long context processing takes time
+    deepseek-chat: 30               # Should be fast
+    deepseek-reasoner: 60
+
+  # Per-task-type timeouts (override model default)
+  per_task_type:
+    classification: 15              # Must be fast
+    batch: 30
+    coding: 120                     # Complex code may need 2 min
+    architecture: 120
+    planning: 90
+    documentation: 90
+    review: 60
+
+  # Connection timeouts
+  connect_timeout_seconds: 10       # TCP connection establishment
+  read_timeout_seconds: null        # Use per-model/task (above)
+
+# --- Cost Optimization ---
+cost:
+  budget:
+    daily_limit_usd: 50.00
+    per_task_limit_usd: 5.00
+    per_session_limit_usd: 20.00
+    alert_threshold_pct: 80
+
+  # Degradation strategy when approaching budget
+  degradation:
+    - threshold_pct: 80
+      action: "alert"
+      description: "Warn human, continue normally"
+
+    - threshold_pct: 90
+      action: "downgrade"
+      description: "Route non-critical to cheaper models"
+      downgrade_map:
+        gpt-5: "claude-sonnet-latest"
+        claude-sonnet-latest: "claude-sonnet"
+        claude-sonnet: "deepseek-reasoner"
+        gemini-pro: "deepseek-chat"
+
+    - threshold_pct: 95
+      action: "queue"
+      description: "Queue non-urgent tasks for next budget cycle"
+
+    - threshold_pct: 100
+      action: "critical_only"
+      description: "Only safety/critical tasks proceed"
+
+  # Cost calculation
+  track_per_call: true
+  track_per_task: true
+  track_per_model: true
+  track_per_day: true
+  ledger_path: "./data/cost_ledger.jsonl"
+
+  # Optimization rules
+  optimization:
+    prefer_cached_prompts: true     # Stable system prompts get API caching discount
+    batch_low_priority: true        # Queue low-priority for batch API (50% discount)
+    skip_unnecessary_retries: true  # Don't retry if error is clearly non-retryable

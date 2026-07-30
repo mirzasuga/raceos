@@ -1,0 +1,180 @@
+{
+  "$schema": "https://opencode.ai/schema/config.json",
+  "$comment": "OpenCode configuration for RaceOS AI Software Factory. See CONFIGURATION.md for option explanations.",
+  "model": {
+    "default": "anthropic/claude-sonnet-4.6",
+    "fast": "anthropic/claude-sonnet-4",
+    "reasoning": "anthropic/claude-opus-4"
+  },
+  "provider": {
+    "name": "9router",
+    "baseUrl": "http://localhost:20128/v1",
+    "apiKeyEnv": "NINE_ROUTER_API_KEY",
+    "headers": {
+      "X-Title": "RaceOS Factory"
+    }
+  },
+  "session": {
+    "nonInteractive": true,
+    "maxTokens": 8192,
+    "temperature": 0.1,
+    "timeout": 300,
+    "outputFormat": "json"
+  },
+  "tools": {
+    "file": {
+      "enabled": true,
+      "rootDir": "..",
+      "allowedPaths": [
+        "firmware/**",
+        "mobile/**",
+        "backend/**",
+        "openspec/changes/**",
+        "docs/**",
+        "hardware/**"
+      ],
+      "blockedPaths": [
+        ".raceos/**",
+        ".ai/**",
+        ".env",
+        "config/**",
+        "raceos-factory/**",
+        "**/.git/**"
+      ],
+      "operations": [
+        "read",
+        "write",
+        "create",
+        "list"
+      ]
+    },
+    "terminal": {
+      "enabled": true,
+      "shell": "/bin/bash",
+      "workingDir": "..",
+      "timeout": 120,
+      "allowedCommands": [
+        "pio build *",
+        "pio test *",
+        "pio check *",
+        "pytest *",
+        "uv run *",
+        "npm test *",
+        "npm run *",
+        "npx tsc *",
+        "npx jest *",
+        "make *",
+        "cat *",
+        "head *",
+        "tail *",
+        "wc *",
+        "grep *",
+        "find *",
+        "ls *",
+        "diff *"
+      ],
+      "blockedCommands": [
+        "rm -rf *",
+        "sudo *",
+        "curl *",
+        "wget *",
+        "ssh *",
+        "scp *",
+        "chmod 777 *",
+        "kill *",
+        "pkill *",
+        "shutdown *",
+        "reboot *"
+      ],
+      "maxOutputLines": 500
+    },
+    "git": {
+      "enabled": true,
+      "workingDir": "..",
+      "operations": [
+        "status",
+        "diff",
+        "log",
+        "branch",
+        "checkout",
+        "add",
+        "commit",
+        "stash"
+      ],
+      "blockedOperations": [
+        "push --force",
+        "reset --hard",
+        "clean -f",
+        "branch -D"
+      ],
+      "branchPrefix": "factory/",
+      "requireBranch": true,
+      "blockMainCommit": true,
+      "commitMessagePrefix": "[factory]",
+      "maxDiffLines": 1000
+    },
+    "patch": {
+      "enabled": true,
+      "rootDir": "..",
+      "operations": [
+        "apply",
+        "create",
+        "preview"
+      ],
+      "maxPatchSize": 50000,
+      "validateBeforeApply": true,
+      "backupBeforeApply": true,
+      "allowedExtensions": [
+        ".cpp",
+        ".h",
+        ".c",
+        ".py",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".md",
+        ".yaml",
+        ".yml",
+        ".json",
+        ".toml",
+        ".ini",
+        ".cfg"
+      ]
+    }
+  },
+  "context": {
+    "systemPromptFile": null,
+    "maxContextTokens": 100000,
+    "includeFileTree": true,
+    "fileTreeDepth": 3,
+    "fileTreeExclude": [
+      "node_modules",
+      ".git",
+      "__pycache__",
+      ".pio",
+      ".venv",
+      "dist",
+      "build"
+    ]
+  },
+  "safety": {
+    "confirmDestructive": true,
+    "maxFilesPerSession": 20,
+    "maxLinesPerFile": 5000,
+    "dryRunDefault": false,
+    "auditLog": true,
+    "auditLogPath": "./data/opencode-audit.jsonl"
+  },
+  "retry": {
+    "maxAttempts": 3,
+    "backoffMs": [
+      1000,
+      2000,
+      4000
+    ],
+    "retryOnBuildFail": true,
+    "retryOnTestFail": true,
+    "escalateModel": true
+  }
+}

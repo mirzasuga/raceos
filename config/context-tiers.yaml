@@ -1,0 +1,54 @@
+# ============================================================
+# Context Injection — Tier Configuration
+# ============================================================
+# Defines what documents are loaded per task type and tier.
+# The Context Resolver is deterministic (no LLM) — it uses
+# these rules to compose a token-budgeted context bundle.
+#
+# Total budget: 12K tokens (leaves room for task prompt + output)
+# ============================================================
+
+context:
+  total_budget_tokens: 12000
+
+  tiers:
+    # Tier 1: Always loaded regardless of task type
+    tier1:
+      label: "Principles & Constraints"
+      budget_tokens: 2000
+      always_load:
+        - ".ai/steering.md"
+        - ".raceos/03-engineering/engineering-principles.md"
+      constraints_extract:
+        - ".raceos/03-engineering/architecture-foundations.md#batasan-lintas-fondasi"
+
+    # Tier 2: Domain-specific specs and ADRs
+    tier2:
+      label: "Domain Spec + ADR"
+      budget_tokens: 3000
+      load_by_task_type:
+        firmware:
+          - "openspec/specs/firmware-core/spec.md"
+          - "openspec/specs/ecu-protocol/spec.md"
+        mobile:
+          - "openspec/specs/mobile-app/spec.md"
+        backend:
+          - "openspec/specs/backend-api/spec.md"
+        spec_writing:
+          - "openspec/README.md"
+
+    # Tier 3: Target source files to be modified
+    tier3:
+      label: "Target Files"
+      budget_tokens: 5000
+      strategy: "load_target_files"
+      max_files: 5
+      truncation: "smart"  # Keep signatures + relevant functions
+
+    # Tier 4: Patterns from Codebase Memory MCP
+    tier4:
+      label: "Codebase Memory"
+      budget_tokens: 1000
+      strategy: "semantic_search"
+      max_results: 3
+      query_from: "task_description + target_files"
