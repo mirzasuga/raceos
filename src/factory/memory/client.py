@@ -87,17 +87,18 @@ class MemoryClient:
 
         Caches result for the session. Returns False if:
         - npx is not installed
-        - The MCP package can't be found
+        - The MCP package can't be resolved
         - Server fails to start
         """
         if self._available is not None:
             return self._available
 
+        # Check if npx exists AND the package is resolvable
         try:
             result = subprocess.run(
-                [self.config.command, "--version"],
+                [self.config.command] + self.config.args + ["--version"],
                 capture_output=True,
-                timeout=5,
+                timeout=15,
             )
             self._available = result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):

@@ -281,7 +281,7 @@ def _load_tier4(
 ) -> tuple[str, int, list[str]]:
     """Load Tier 4: codebase memory patterns. Never cached (query-specific)."""
     if memory_client is None:
-        # Try to load real client
+        # Try to load real client — skip silently if unavailable
         try:
             from factory.memory.context_builder import ContextBuilder, ContextBuilderConfig
             from factory.memory.client import MemoryClient
@@ -290,7 +290,12 @@ def _load_tier4(
             if not client.is_available():
                 return "", 0, []
 
-            client.connect()
+            try:
+                client.connect()
+            except Exception:
+                # MCP server not installed or failed to start — skip Tier 4
+                return "", 0, []
+
             builder = ContextBuilder(client, ContextBuilderConfig(budget_tokens=TIER4_BUDGET))
             ctx = builder.build(description, target_files, domain)
             client.disconnect()
