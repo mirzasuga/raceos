@@ -154,16 +154,38 @@ def _classify_via_llm(description: str, domain: str, router, gateway) -> dict | 
     Returns None if LLM is unavailable or fails to parse.
     """
     if router is None or gateway is None:
-        # Try to load from config (non-injected path)
+        # Production path: use services.call_llm (sole LLM entry point)
         try:
-            from factory.services import get_router, call_llm
-            
-            router = get_router()
-            gateway = None  # handled by services
-        except Exception:
+            from factory.services import call_llm
+
+            prompt = f"""Classify this software development task.
+
+Task: "{description}"
+Domain: {domain}
+
+Respond with JSON only:
+{{
+  "task_type": "coding|debugging|documentation|architecture|spec_writing|review|research|data_telemetry|hardware",
+  "complexity": "low|medium|high|critical",
+  "reasoning": "one sentence why"
+}}"""
+
+            response_text = call_llm(task_type="classification", prompt=prompt)
+            if response_text is None:
+                return None
+
+            data = json.loads(response_text.strip())
+            return {
+                "task_type": data.get("task_type", "coding"),
+                "complexity": data.get("complexity", "medium"),
+                "domain": domain,
+                "reasoning": data.get("reasoning", "LLM classification"),
+            }
+        except (json.JSONDecodeError, Exception) as e:
+            log.debug("orchestrator.llm_parse_failed", error=str(e))
             return None
 
-    # Route to cheapest model for classification
+    # Injected path (testing with mock gateway)
     route = router.route(task_type="classification")
 
     prompt = f"""Classify this software development task.
