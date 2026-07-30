@@ -1,6 +1,6 @@
 [project]
 name = "raceos-factory"
-version = "1.0.3"
+version = "1.0.4"
 description = "AI Software Factory for the RaceOS motorsport platform"
 readme = "README.md"
 license = "MIT"
