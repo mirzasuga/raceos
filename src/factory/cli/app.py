@@ -207,6 +207,13 @@ def demo():
 
 
 @app.command()
+def repair():
+    """Auto-fix common issues found by doctor."""
+    from factory.cli.commands.repair import run_repair
+    run_repair()
+
+
+@app.command()
 def update(
     check_only: bool = typer.Option(False, "--check", help="Check only"),
     force: bool = typer.Option(False, "--force", help="Force reinstall"),
