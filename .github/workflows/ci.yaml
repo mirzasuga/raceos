@@ -30,7 +30,7 @@ jobs:
       - run: uv run pytest tests/unit/ --cov=src/factory --cov-report=xml -v
         env:
           OPENROUTER_API_KEY: "test-key-not-real"
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v7
         if: matrix.python-version == '3.12'
         with:
           file: coverage.xml
