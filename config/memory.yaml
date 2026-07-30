@@ -1,0 +1,169 @@
+# ============================================================
+# Codebase Memory MCP — Configuration
+# ============================================================
+# Controls how the factory indexes, searches, and queries the
+# codebase memory for implementation patterns, symbols, and
+# dependency relationships.
+#
+# Codebase Memory stores IMPLEMENTATION knowledge only:
+#   ✅ Code patterns, file relationships, symbol locations
+#   ❌ NOT project knowledge (that's Brain/.raceos)
+#   ❌ NOT specs (that's OpenSpec)
+# ============================================================
+
+memory:
+  # --- MCP Server Connection ---
+  server:
+    transport: "stdio"                      # stdio | sse | streamable-http
+    command: "npx"
+    args: ["-y", "@anthropic/codebase-memory-mcp"]
+    startup_timeout_seconds: 30             # Wait for server to be ready
+    request_timeout_seconds: 10             # Per-request timeout
+    max_retries: 2                          # Retry failed requests
+
+  # --- Repository Indexing ---
+  indexing:
+    # Which directories to index
+    include_paths:
+      - "firmware/app/"
+      - "firmware/middleware/"
+      - "firmware/drivers/"
+      - "firmware/core/"
+      - "firmware/tests/"
+      - "mobile/src/"
+      - "backend/src/"
+      - "openspec/specs/"
+      - "adr/"
+
+    # Which directories to skip
+    exclude_paths:
+      - ".git/"
+      - ".pio/"
+      - ".venv/"
+      - "node_modules/"
+      - "__pycache__/"
+      - "firmware/.pio/"
+      - "firmware/compile_commands.json"
+      - "brain/"                            # Has its own RAG system
+
+    # File types to index
+    include_extensions:
+      - ".cpp"
+      - ".h"
+      - ".c"
+      - ".py"
+      - ".ts"
+      - ".tsx"
+      - ".md"
+      - ".yaml"
+      - ".yml"
+
+    # Files to skip even if extension matches
+    exclude_patterns:
+      - "**/test_*.py"                      # Test files (optional, can include)
+      - "**/*.generated.*"
+      - "**/compile_commands.json"
+
+    # Indexing behavior
+    chunk_size: 1500                        # Tokens per chunk (for embedding)
+    chunk_overlap: 200                      # Overlap between chunks
+    max_file_size_kb: 100                   # Skip files larger than 100KB
+    reindex_on_change: true                 # Re-index when files modified
+    index_symbols: true                     # Extract function/class/struct names
+    index_dependencies: true                # Extract #include / import relationships
+
+  # --- Semantic Search ---
+  search:
+    default_top_k: 5                        # Results per query
+    max_top_k: 20                           # Hard cap on results
+    similarity_threshold: 0.65              # Minimum relevance score (0-1)
+    boost_recent: true                      # Prefer recently modified files
+    boost_factor: 1.2                       # Multiplier for recent files
+
+    # Search scopes (restrict search to specific areas)
+    scopes:
+      firmware:
+        paths: ["firmware/"]
+        extensions: [".cpp", ".h", ".c"]
+      mobile:
+        paths: ["mobile/src/"]
+        extensions: [".ts", ".tsx"]
+      backend:
+        paths: ["backend/src/"]
+        extensions: [".py"]
+      specs:
+        paths: ["openspec/specs/", "adr/"]
+        extensions: [".md"]
+
+  # --- Symbol Lookup ---
+  symbols:
+    enabled: true
+    languages:
+      cpp:
+        patterns:
+          function: "^\\w+\\s+\\w+\\s*\\([^)]*\\)"
+          class: "^(class|struct)\\s+\\w+"
+          enum: "^enum\\s+(class\\s+)?\\w+"
+          define: "^#define\\s+\\w+"
+          interface: "^class\\s+I[A-Z]\\w+"     # RaceOS convention: IFoo
+        extensions: [".cpp", ".h", ".c"]
+      python:
+        patterns:
+          function: "^def\\s+\\w+"
+          class: "^class\\s+\\w+"
+          decorator: "^@\\w+"
+        extensions: [".py"]
+      typescript:
+        patterns:
+          function: "^(export\\s+)?(async\\s+)?function\\s+\\w+"
+          interface: "^(export\\s+)?interface\\s+\\w+"
+          type: "^(export\\s+)?type\\s+\\w+"
+          component: "^(export\\s+)?(const|function)\\s+\\w+.*=>|^function\\s+\\w+"
+        extensions: [".ts", ".tsx"]
+
+  # --- Dependency Graph ---
+  dependencies:
+    enabled: true
+    languages:
+      cpp:
+        import_pattern: "^#include\\s+[\"<]([^\"'>]+)[\"'>]"
+        resolve_relative: true
+      python:
+        import_pattern: "^(from\\s+\\S+\\s+import|import\\s+\\S+)"
+        resolve_relative: true
+      typescript:
+        import_pattern: "^import\\s+.*from\\s+['\"]([^'\"]+)['\"]"
+        resolve_relative: true
+
+    # Dependency analysis features
+    detect_cycles: true                     # Warn on circular dependencies
+    layer_validation: true                  # Validate RaceOS layer direction
+    layers:                                 # Dependency direction (top → bottom)
+      - "firmware/app/"
+      - "firmware/middleware/"
+      - "firmware/drivers/"
+      - "firmware/core/"
+
+  # --- Context Builder ---
+  context_builder:
+    # Token budget for Tier 4 (codebase memory context)
+    budget_tokens: 1000
+
+    # How to compose context from memory results
+    format: "condensed"                     # condensed | verbose | raw
+    include_file_path: true
+    include_line_numbers: true
+    include_relevance_score: false
+    max_results: 3                          # Max patterns in context
+
+    # Query strategy
+    query_sources:
+      - "task_description"                  # Always query with task text
+      - "target_files"                      # Also query with target file names
+
+  # --- Storage ---
+  storage:
+    backend: "local"                        # local | sqlite | remote
+    path: "./data/memory/"                  # Where to store index data
+    persist: true                           # Survive restarts
+    max_size_mb: 500                        # Cap storage at 500MB
