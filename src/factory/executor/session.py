@@ -166,39 +166,29 @@ class Session:
         """
         Build the CLI command for spawning OpenCode.
 
-        Returns:
-            List of command parts ready for subprocess.run().
+        Uses: opencode run "message" --model X --format json --dir Y --auto
         """
-        cmd = [self.config.binary]
+        cmd = [self.config.binary, "run"]
 
-        # Model selection
-        cmd.extend(["--model", self.config.model])
-        cmd.extend(["--max-tokens", str(self.config.max_tokens)])
-        cmd.extend(["--temperature", str(self.config.temperature)])
-
-        # Session mode
-        if self.config.non_interactive:
-            cmd.append("--non-interactive")
-
-        # Output format
-        cmd.extend(["--output-format", self.config.output_format])
-
-        # Config file
-        cmd.extend(["--config", self.config.config_path])
-
-        # Prompt file
+        # The prompt is the message (read from file content)
         if self._prompt_file:
-            cmd.extend(["--prompt-file", str(self._prompt_file)])
+            prompt_content = self._prompt_file.read_text()
+            cmd.append(prompt_content)
 
-        # Tool flags
-        if not self.config.enable_file:
-            cmd.append("--no-file")
-        if not self.config.enable_terminal:
-            cmd.append("--no-terminal")
-        if not self.config.enable_git:
-            cmd.append("--no-git")
-        if not self.config.enable_patch:
-            cmd.append("--no-patch")
+        # Model
+        if self.config.model and self.config.model != "default":
+            cmd.extend(["--model", self.config.model])
+
+        # Output format (json for structured parsing)
+        cmd.extend(["--format", self.config.output_format])
+
+        # Working directory
+        if self.config.working_dir:
+            cmd.extend(["--dir", self.config.working_dir])
+
+        # Auto-approve (non-interactive)
+        if self.config.non_interactive:
+            cmd.append("--auto")
 
         return cmd
 
