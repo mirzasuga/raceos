@@ -23,6 +23,13 @@ from typing import Optional
 import typer
 from rich.console import Console
 
+# Load .env file into environment (before anything else)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 import factory
 from factory.cli.output.theme import THEME
 
