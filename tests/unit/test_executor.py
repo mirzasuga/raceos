@@ -133,12 +133,10 @@ class TestSession:
         cmd = session.build_command()
 
         assert cmd[0] == "opencode"
-        assert "--model" in cmd
-        assert "default" in cmd
-        assert "--max-tokens" in cmd
-        assert "4096" in cmd
-        assert "--non-interactive" in cmd
-        assert "--output-format" in cmd
+        assert "--auto" in cmd  # non-interactive mode
+        assert "run" in cmd
+        assert "--auto" in cmd
+        assert "--format" in cmd
         assert "json" in cmd
         session.cleanup()
 

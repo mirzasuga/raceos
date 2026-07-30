@@ -13,7 +13,7 @@ This client knows NOTHING about routing or model selection.
 It receives a model ID and makes the call. 9Router decides which model.
 
 Usage:
-    client = GatewayClient()
+    # See factory.services for usage
     response = client.complete(request)
     client.close()
 """

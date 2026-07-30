@@ -7,7 +7,7 @@ import factory
 
 def test_version():
     """Package version is set."""
-    assert factory.__version__ == "1.0.2"
+    assert factory.__version__ == "1.0.6"
 
 
 def test_config_files_exist(config_dir: Path):
