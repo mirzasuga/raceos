@@ -1,0 +1,47 @@
+# ============================================================
+# RaceOS AI Software Factory — Master Configuration
+# ============================================================
+# This is the top-level factory config. Component-specific
+# configs are in their own files (router.yaml, opencode.json, etc.)
+# ============================================================
+
+factory:
+  name: "raceos-factory"
+  version: "0.1.0"
+  environment: "development"  # development | staging | production
+
+  # --- Project Brain (read-only source of truth) ---
+  brain:
+    root: "../.raceos/"         # Relative to factory root
+    immutable: true             # Factory NEVER writes here
+    cache_ttl_seconds: 300      # Re-read Brain docs every 5 min
+
+  # --- OpenSpec (spec-driven planning) ---
+  openspec:
+    specs_dir: "../openspec/specs/"
+    changes_dir: "../openspec/changes/"
+    templates_dir: "./src/factory/spec_engine/templates/"
+
+  # --- Executor (OpenCode) ---
+  executor:
+    opencode_bin: "opencode"    # Binary name or path
+    timeout_seconds: 300        # Kill session after 5 min
+    working_dir: ".."           # RaceOS repo root
+
+  # --- Workflow (LangGraph) ---
+  workflow:
+    max_concurrent_tasks: 3
+    default_timeout_seconds: 600
+    human_gate_timeout_hours: 24
+    enable_auto_approve_simple: true
+
+  # --- Logging ---
+  logging:
+    level: "INFO"               # DEBUG | INFO | WARNING | ERROR
+    format: "json"              # json | text
+    output: "stdout"            # stdout | file | both
+    file_path: "./logs/factory.log"
+
+  # --- Persistence ---
+  persistence:
+    data_dir: "./data"          # Task state, metrics, patterns
